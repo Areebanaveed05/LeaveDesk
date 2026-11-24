@@ -1,21 +1,5 @@
-
 import { useState } from "react";
-
-const getDateKey = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-};
-
-const formatDate = (date) => {
-  return date.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-};
+import { getDateKey, formatLocalDate, toDateKey } from "../utils/date";
 
 export default function RecentLeaveDecisions({ requests }) {
   const [today] = useState(() => new Date());
@@ -57,11 +41,13 @@ export default function RecentLeaveDecisions({ requests }) {
 
   return (
     <section className="mt-8 rounded-2xl border border-[#D9E5F0] bg-[#F0F5FA] p-5 shadow-sm transition-shadow duration-300 hover:shadow-md sm:p-6">
-
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0E8DF] text-xl text-[#98765B]">
+          <div
+            aria-hidden="true"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0E8DF] text-xl text-[#98765B]"
+          >
             ✓
           </div>
 
@@ -71,7 +57,8 @@ export default function RecentLeaveDecisions({ requests }) {
         </div>
 
         <p className="mt-2 text-sm text-slate-500">
-          Approved and rejected leave requests for nearby dates.
+          Approved and rejected requests that cover yesterday, today or
+          tomorrow.
         </p>
       </div>
 
@@ -80,12 +67,15 @@ export default function RecentLeaveDecisions({ requests }) {
         {dateGroups.map((group) => {
           const groupDateKey = getDateKey(group.date);
 
+          // A request belongs to this day if the day falls
+          // anywhere between its start date and end date.
           const groupRequests = decidedRequests.filter((request) => {
-            if (!request.startDate) return false;
+            if (!request.startDate || !request.endDate) return false;
 
-            const requestDateKey = String(request.startDate).slice(0, 10);
+            const startKey = toDateKey(request.startDate);
+            const endKey = toDateKey(request.endDate);
 
-            return requestDateKey === groupDateKey;
+            return startKey <= groupDateKey && groupDateKey <= endKey;
           });
 
           return (
@@ -106,7 +96,11 @@ export default function RecentLeaveDecisions({ requests }) {
                 <p
                   className={`mt-1 pl-[18px] text-xs font-medium ${group.heading}`}
                 >
-                  {formatDate(group.date)}
+                  {formatLocalDate(group.date, {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
                 </p>
               </div>
 
@@ -118,9 +112,14 @@ export default function RecentLeaveDecisions({ requests }) {
                       key={request._id}
                       className="flex items-center justify-between gap-2 rounded-lg border border-white/70 bg-white/75 px-3 py-2.5 transition-all duration-200 hover:bg-white hover:shadow-sm"
                     >
-                      <p className="min-w-0 truncate text-sm font-semibold text-slate-800">
-                        {request.employeeName}
-                      </p>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-800">
+                          {request.employeeName}
+                        </p>
+                        <p className="truncate text-xs text-slate-500">
+                          {request.type}
+                        </p>
+                      </div>
 
                       <span
                         className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${

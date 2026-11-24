@@ -1,7 +1,7 @@
-
 import { useEffect, useState } from "react";
 import api from "../api";
-import Spinner from "./Spinner";
+import Spinner from "../components/Spinner";
+import { getDateKey, formatLocalDate, formatUTCDate } from "../utils/date";
 
 const TYPE_STYLES = {
   "Work From Home": {
@@ -26,20 +26,13 @@ const TYPE_STYLES = {
   },
 };
 
-const formatDate = (iso) =>
-  new Date(iso).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-
 export default function OutTodayBanner({ refreshKey }) {
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [todayLabel] = useState(() =>
-    new Date().toLocaleDateString("en-GB", {
+    formatLocalDate(new Date(), {
       weekday: "long",
       day: "numeric",
       month: "long",
@@ -48,22 +41,37 @@ export default function OutTodayBanner({ refreshKey }) {
   );
 
   useEffect(() => {
+    let ignore = false;
+
     const fetchOutToday = async () => {
       try {
+        // Send the user's own calendar date so "today" is correct
+        // in every timezone, not just the server's.
         const { data } = await api.get("/requests", {
-          params: { today: true, status: "Approved" },
+          params: {
+            today: true,
+            status: "Approved",
+            date: getDateKey(new Date()),
+          },
         });
 
+        if (ignore) return;
         setPeople(data);
         setError("");
       } catch {
+        if (ignore) return;
         setError("Could not load who is out today.");
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     };
 
     fetchOutToday();
+
+    // Avoid updating state after unmount or when a newer fetch starts
+    return () => {
+      ignore = true;
+    };
   }, [refreshKey]);
 
   return (
@@ -80,9 +88,7 @@ export default function OutTodayBanner({ refreshKey }) {
           Out Today
         </h2>
 
-        <p className="text-sm font-medium text-blue-700">
-          {todayLabel}
-        </p>
+        <p className="text-sm font-medium text-blue-700">{todayLabel}</p>
       </div>
 
       {loading && <Spinner label="Checking who is out..." />}
@@ -134,7 +140,11 @@ export default function OutTodayBanner({ refreshKey }) {
                 </div>
 
                 <p className="mt-3 pl-1 text-xs font-medium text-slate-600">
-                  Until {formatDate(p.endDate)}
+                  Until{" "}
+                  {formatUTCDate(p.endDate, {
+                    day: "numeric",
+                    month: "short",
+                  })}
                 </p>
               </li>
             );

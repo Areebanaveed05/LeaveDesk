@@ -2,15 +2,26 @@ import express from "express";
 import {
   createRequest,
   getRequests,
+  getOutToday,
   updateRequestStatus,
   deleteRequest,
 } from "../controllers/requestController.js";
+import {
+  protect,
+  adminOnly,
+  employeeOnly,
+} from "../middleware/authMiddleware.js";
+import { validateObjectId } from "../middleware/validateObjectId.js";
 
 const router = express.Router();
 
-router.post("/", createRequest);
-router.get("/", getRequests);
-router.patch("/:id/status", updateRequestStatus);
-router.delete("/:id", deleteRequest);
+// Everything below needs a valid login
+router.use(protect);
+
+router.get("/out-today", getOutToday); // any logged-in user
+router.get("/", getRequests); // employee: own, admin: all
+router.post("/", employeeOnly, createRequest);
+router.patch("/:id/status", adminOnly, validateObjectId, updateRequestStatus);
+router.delete("/:id", employeeOnly, validateObjectId, deleteRequest);
 
 export default router;

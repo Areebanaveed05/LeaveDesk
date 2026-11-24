@@ -1,12 +1,89 @@
+const FEATURES = [
+  {
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6M8 13h8M8 17h8" />
+      </svg>
+    ),
+    title: "Easy Requests",
+    desc: "Submit leave requests with a simple form.",
+  },
+  {
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="m8 12 2.5 2.5L16.5 9" />
+      </svg>
+    ),
+    title: "Quick Approvals",
+    desc: "Approve or reject employee requests.",
+  },
+  {
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M3 3v18h18" />
+        <rect x="7" y="10" width="3" height="7" rx="0.5" />
+        <rect x="14" y="5" width="3" height="12" rx="0.5" />
+      </svg>
+    ),
+    title: "Request Tracking",
+    desc: "Keep track of pending and approved leaves.",
+  },
+  {
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="10" cy="7" r="4" />
+        <path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+    title: "Team Overview",
+    desc: "See employees who are out today.",
+  },
+];
+
 export default function LandingPage({ onGetStarted }) {
   return (
     <div className="min-h-screen bg-white text-slate-800">
       {/* Navbar */}
       <nav className="flex items-center justify-between px-6 py-5 md:px-16">
-        <h1 className="text-3xl font-bold">
+        <p className="text-3xl font-bold">
           <span className="text-slate-800">Leave</span>
           <span className="text-[#2563EB]">Desk</span>
-        </h1>
+        </p>
 
         <div className="flex items-center gap-6 md:gap-10">
           <div className="hidden items-center gap-8 md:flex">
@@ -33,10 +110,11 @@ export default function LandingPage({ onGetStarted }) {
           </div>
 
           <button
+            type="button"
             onClick={onGetStarted}
             className="rounded-lg bg-[#2563EB] px-5 py-2.5 font-semibold text-white transition-colors hover:bg-[#1D4ED8]"
           >
-            Get Started
+            Sign In
           </button>
         </div>
       </nav>
@@ -51,10 +129,10 @@ export default function LandingPage({ onGetStarted }) {
             Smart Employee Leave Management
           </span>
 
-          <h2 className="mt-6 text-4xl font-bold leading-tight md:text-6xl">
+          <h1 className="mt-6 text-4xl font-bold leading-tight md:text-6xl">
             Simplify Your
             <span className="text-blue-600"> Leave Management</span>
-          </h2>
+          </h1>
 
           <p className="mt-6 max-w-lg text-lg leading-8 text-slate-600">
             Manage employee leave requests, track approvals, and keep your team
@@ -63,6 +141,7 @@ export default function LandingPage({ onGetStarted }) {
 
           <div className="mt-8 flex flex-wrap gap-4">
             <button
+              type="button"
               onClick={onGetStarted}
               className="rounded-lg bg-[#2563EB] px-7 py-3 font-semibold text-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:bg-[#1D4ED8] hover:shadow-lg"
             >
@@ -78,34 +157,35 @@ export default function LandingPage({ onGetStarted }) {
           </div>
         </div>
 
-        {/* Dashboard Preview */}
+        {/* Dashboard Preview (sample data, not live) */}
         <div className="rounded-2xl border border-blue-100 bg-white p-6 shadow-xl">
           <div className="mb-6 flex items-center justify-between">
-            <h3 className="text-xl font-bold">Leave Overview</h3>
-            <span className="rounded-full bg-green-100 px-3 py-1 text-sm text-green-700">
-              Live Overview
+            <h2 className="text-xl font-bold">Leave Overview</h2>
+            <span className="rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-700">
+              Preview
             </span>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-xl bg-blue-50 p-4">
               <p className="text-sm text-slate-500">Total</p>
-              <h4 className="mt-2 text-2xl font-bold text-blue-700">24</h4>
+              <p className="mt-2 text-2xl font-bold text-blue-700">24</p>
             </div>
 
             <div className="rounded-xl bg-yellow-50 p-4">
               <p className="text-sm text-slate-500">Pending</p>
-              <h4 className="mt-2 text-2xl font-bold text-yellow-600">08</h4>
+              <p className="mt-2 text-2xl font-bold text-yellow-600">08</p>
             </div>
 
             <div className="rounded-xl bg-green-50 p-4">
               <p className="text-sm text-slate-500">Approved</p>
-              <h4 className="mt-2 text-2xl font-bold text-green-700">16</h4>
+              <p className="mt-2 text-2xl font-bold text-green-700">16</p>
             </div>
           </div>
 
           <div className="mt-6 rounded-xl border border-slate-100 p-5">
-            <h4 className="font-semibold">Leave Management</h4>
+            <h3 className="font-semibold">Leave Management</h3>
+
             <div className="mt-4 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-slate-600">Annual Leave</span>
@@ -128,8 +208,9 @@ export default function LandingPage({ onGetStarted }) {
               </div>
             </div>
           </div>
+
           <p className="mt-3 text-xs text-slate-400">
-            Illustrative dashboard preview
+            Sample data for illustration only
           </p>
         </div>
       </section>
@@ -146,78 +227,7 @@ export default function LandingPage({ onGetStarted }) {
         </div>
 
         <div className="mt-12 grid gap-6 md:grid-cols-4">
-          {[
-            {
-              icon: (
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <path d="M14 2v6h6M8 13h8M8 17h8" />
-                </svg>
-              ),
-              title: "Easy Requests",
-              desc: "Submit leave requests with a simple form.",
-            },
-            {
-              icon: (
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="m8 12 2.5 2.5L16.5 9" />
-                </svg>
-              ),
-              title: "Quick Approvals",
-              desc: "Approve or reject employee requests.",
-            },
-            {
-              icon: (
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M3 3v18h18" />
-                  <rect x="7" y="10" width="3" height="7" rx="0.5" />
-                  <rect x="14" y="5" width="3" height="12" rx="0.5" />
-                </svg>
-              ),
-              title: "Request Tracking",
-              desc: "Keep track of pending and approved leaves.",
-            },
-            {
-              icon: (
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="10" cy="7" r="4" />
-                  <path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
-              ),
-              title: "Team Overview",
-              desc: "See employees who are out today.",
-            },
-          ].map((feature) => (
+          {FEATURES.map((feature) => (
             <div
               key={feature.title}
               className="rounded-2xl border border-slate-200 p-7 transition hover:-translate-y-1 hover:shadow-lg"
@@ -260,6 +270,7 @@ export default function LandingPage({ onGetStarted }) {
 
         <div className="mt-12 text-center">
           <button
+            type="button"
             onClick={onGetStarted}
             className="rounded-lg bg-[#2563EB] px-8 py-3 font-semibold text-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:bg-[#1D4ED8] hover:shadow-lg"
           >
@@ -270,7 +281,7 @@ export default function LandingPage({ onGetStarted }) {
 
       {/* Footer */}
       <footer className="bg-slate-900 px-6 py-8 text-center text-white">
-        <h2 className="text-xl font-bold">LeaveDesk</h2>
+        <p className="text-xl font-bold">LeaveDesk</p>
         <p className="mt-2 text-sm text-slate-400">
           Simplifying employee leave management.
         </p>

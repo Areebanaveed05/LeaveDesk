@@ -1,181 +1,187 @@
-# LeaveDesk – Office Leave & Remote Work Tracker
+LeaveDesk --- Employee Leave, Attendance & Project Management System
 
-LeaveDesk is a full-stack MERN application designed to simplify employee leave and remote work management. It allows employees to submit leave requests and enables managers to approve, reject, delete, and track requests through an interactive dashboard.
-
-## Features
-
-- **Dashboard:** Overview of leave management activity.
-- **Out Today:** Displays employees with approved leave or remote work active today.
-- **Recent Leave Decisions:** Shows approved and rejected requests for yesterday, today, and tomorrow.
-- **Submit Leave Requests:** Employees can submit requests with their name, department, request type, dates, and reason.
-- **Request Management:** View and manage all submitted requests.
-- **Status Management:** Approve or reject employee requests.
-- **Filtering:** Filter requests by All, Pending, Approved, and Rejected status.
-- **Delete Requests:** Remove requests when required.
-- **Interactive UI:** Responsive interface with a sidebar and modern styling.
-- **Validation & Error Handling:** Handles invalid date ranges, loading states, and API errors.
-
-## Technologies Used
-
-### Frontend
-- React.js
-- Vite
-- Tailwind CSS v4
-- Axios
-
-### Backend
-- Node.js
-- Express.js
-- MongoDB Atlas
-- Mongoose
-- Nodemon
-
-## Project Structure
-
-```text
-leave-tracker/
-│
-├── client/
+LeaveDesk is an organization-focused web application for managing
+employee leave requests, attendance, projects, and project tasks through
+a shared Admin and Employee portal.
+Overview
+The application provides a centralized workspace where administrators
+can manage employees and organizational structure, while employees can
+submit and track requests and work with projects and tasks assigned to
+them.
+Main Features
+Admin Portal
+- Create and manage employee accounts.
+- Edit employee information, department details, designations, and
+  organizational team memberships.
+- Activate or deactivate employee accounts and reset passwords.
+- Review, approve, and reject leave requests.
+- View employee leave request information and leave balances.
+- Manage attendance information.
+- Create and manage projects.
+- Assign project team members and select a Project Lead.
+- View project progress and task information.
+Employee Portal
+- Sign in using an organization-created employee account.
+- Submit and track leave requests.
+- View leave request status and available leave information.
+- Check attendance information.
+- View projects to which the employee is assigned.
+- View tasks assigned to the employee and update task progress.
+- Project Leads can manage phases and assign tasks to members of
+  projects they lead, subject to project status and permissions.
+Project and Task Management
+- Organize work through projects, project teams, and project phases.
+- Assign tasks to members of the relevant project.
+- Track task priorities, deadlines, dependencies, and completion
+  status.
+- View project and employee task progress.
+- Overdue projects are treated separately from active projects in the
+  interface. Project Leads should not create phases or assign new
+  tasks while a project is overdue.
+Technology Stack
+  Layer              Technology
+  Frontend           React
+Frontend tooling   Vite
+Styling            Tailwind CSS
+Backend            Node.js
+API                Express
+Database           MongoDB
+ODM                Mongoose
+Authentication     JSON Web Tokens (JWT)
+Password hashing   bcryptjs
+Repository Structure
+The repository uses a frontend/backend structure:
+LeaveDesk/
+├── client/                 # React frontend
 │   ├── src/
-│   │   ├── components/
-│   │   ├── api.js
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── .env
-│   ├── package.json
-│   └── vite.config.js
-│
-├── server/
+│   └── package.json
+├── server/                 # Express backend
 │   ├── controllers/
+│   ├── middleware/
 │   ├── models/
 │   ├── routes/
-│   ├── .env
+│   ├── scripts/
+│   ├── utils/
 │   ├── index.js
 │   └── package.json
-│
-├── .gitignore
 └── README.md
-```
-
-## Installation & Setup
-
-### 1. Clone the Repository
-
-```bash
-git clone YOUR_REPOSITORY_URL
-cd leave-tracker
-```
-
-### 2. Set Up the Backend
-
-Navigate to the server folder:
-
-```bash
+The exact folders and files may evolve as the project is developed.
+Prerequisites
+Install the following before running the project locally:
+- Node.js (LTS version recommended)
+- npm
+- MongoDB Atlas account or a reachable MongoDB instance
+- Git
+Local Setup
+1. Clone the repository
+git clone https://github.com/Areebanaveed05/LeaveDesk.git
+cd LeaveDesk
+2. Configure the backend
 cd server
 npm install
-```
-
-Create a `.env` file inside the server folder:
-
-```env
+Create a server/.env file. Add the environment variables required by
+the backend:
 PORT=5000
-MONGO_URI=your_mongodb_atlas_connection_string
-```
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=replace_with_a_long_random_secret
+JWT_EXPIRES_IN=7d
 
-Replace the MongoDB URI with your own MongoDB Atlas connection string.
+ADMIN_NAME=Organization Admin
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=replace_with_a_strong_password
+Important security notes: - Replace every example value with your
+own private value. - Never commit .env files, database credentials,
+JWT secrets, or real passwords to GitHub. - Keep .env in
+.gitignore. - Use a strong, unique JWT_SECRET and a strong
+administrator password. - The admin seed variables are only needed if
+the project uses the admin creation script.
 
-Start the backend development server:
-
-```bash
+The backend package scripts currently include:
 npm run dev
-```
+npm start
+npm run seed:admin
+Use npm run seed:admin only when you intentionally need to create the
+initial administrator account, and follow the project's current seeding
+logic. Do not repeatedly run seed scripts without checking whether they
+create or update an account.
 
-The backend will run at:
-
-`http://localhost:5000`
-
-### 3. Set Up the Frontend
-
-Open a second terminal and navigate to the client folder:
-
-```bash
+Start the backend for local development:
+npm run dev
+The backend is configured to use port 5000 by default when PORT is
+not set.
+3. Configure the frontend
+Open a second terminal:
 cd client
 npm install
-```
+Configure the frontend API base URL using the environment variable
+expected by the API configuration file (for example,
+client/src/api.js). For a Vite environment, client-side environment
+variables normally use the VITE_ prefix.
 
-Create a `.env` file inside the client folder:
-
-```env
+Example only:
 VITE_API_URL=http://localhost:5000/api
-```
+Check the actual API configuration in the repository before using this
+exact value. The variable name and whether /api belongs in the URL
+must match the frontend's API client.
 
-Start the frontend development server:
-
-```bash
+Start the frontend using the development script defined in
+client/package.json, commonly:
 npm run dev
-```
+Open the local URL printed by Vite in the terminal.
+Environment Variables
+  Variable                            Purpose
+  PORT                              Port used by the Express server
 
-Open the local URL displayed by Vite, usually:
+  MONGO_URI                         MongoDB connection string
 
-`http://localhost:5173`
+  JWT_SECRET                        Secret used to sign authentication
+tokens
 
-## API Endpoints
+  JWT_EXPIRES_IN                    JWT token lifetime
 
-Base URL: `http://localhost:5000/api/requests`
+  ADMIN_NAME                        Initial administrator name, if used
+by the seed script
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/requests` | Create a new leave request |
-| GET | `/api/requests` | Fetch all leave requests |
-| PATCH | `/api/requests/:id/status` | Approve or reject a request |
-| DELETE | `/api/requests/:id` | Delete a request |
+  ADMIN_EMAIL                       Initial administrator email, if
+used by the seed script
 
-### Supported Query Filters
-
-- `?status=Pending` – Filter by request status.
-- `?type=Work+From+Home` – Filter by request type.
-- `?today=true` – Fetch requests active today.
-
-Filters can also be combined where supported by the API.
-
-## Request Statuses
-
-- **Pending:** Newly submitted requests.
-- **Approved:** Requests accepted by management.
-- **Rejected:** Requests declined by management.
-
-## Available Scripts
-
-### Frontend
-
-| Command | Description |
-|---|---|
-| `npm run dev` | Start Vite development server |
-| `npm run build` | Build production frontend |
-| `npm run preview` | Preview production build |
-| `npm run lint` | Run Oxlint |
-
-### Backend
-
-| Command | Description |
-|---|---|
-| `npm run dev` | Start backend with Nodemon |
-| `npm start` | Start backend using Node.js |
-
-## Environment Variables
-
-Keep the following files private:
-
-- `server/.env`
-- `client/.env`
-
-Never commit MongoDB credentials or other secrets to GitHub.
-
-## Project Goal
-
-This project was developed as part of MERN Stack onboarding to practice full-stack development, REST API integration, MongoDB database operations, form validation, request status workflows, and interactive React interfaces.
-
----
-
-**Project:** LeaveDesk – Office Leave & Remote Work Tracker  
-**Stack:** MERN (MongoDB, Express.js, React.js, Node.js)
+  ADMIN_PASSWORD                    Initial administrator password, if
+used by the seed script
+VITE_API_URL                      Example frontend API URL variable;
+confirm the exact name in
+client/src/api.js
+Do not publish real environment variable values in this README or in the
+repository.
+Deployment Notes
+The intended deployment arrangement is:
+- Frontend: Vercel
+- Backend: Render
+- Database: MongoDB Atlas
+Before deployment:
+1. Push the latest tested code to the GitHub repository.
+2. Confirm .env, node_modules, build output, and other
+   private/local files are excluded from Git.
+3. Create the production MongoDB connection string and configure Atlas
+   network access.
+4. Add backend environment variables in the Render service settings.
+5. Deploy the backend and note its public URL.
+6. Configure the frontend's production API URL in Vercel.
+7. Configure backend CORS to allow the deployed frontend origin.
+8. Test authentication and the main workflows on the deployed website.
+Never put MongoDB credentials or JWT_SECRET in frontend environment
+variables. Frontend variables are exposed to the browser.
+Important Notes
+- Admin and Employee accounts are managed through the application's
+  authentication and role-based access flow.
+- Project Lead permissions are limited to projects where that employee
+  is assigned as Project Lead.
+- Employees should only manage their own assigned tasks.
+- Frontend restrictions should be backed by server-side authorization
+  and validation.
+- Confirm all environment variable names and scripts against the
+  current server/package.json, client/package.json, and API
+  configuration before deployment.
+Repository
+GitHub: https://github.com/Areebanaveed05/LeaveDesk
+LeaveDesk --- A centralized workspace for employee leave,
+attendance, projects, and task coordination.

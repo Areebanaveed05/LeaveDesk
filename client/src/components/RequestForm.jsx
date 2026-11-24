@@ -1,14 +1,20 @@
 
-import { useState } from "react";
-import api from "../api";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 
-const DEPARTMENTS = [
-  "Engineering",
-  "Design",
-  "QA",
-  "Product",
-  "Operations",
-];
+import api from "../api";
+import useDismiss from "../hooks/useDismiss";
+
+import {
+  getDateKey,
+  parseDateKey,
+  formatLocalDate,
+} from "../utils/date";
 
 const TYPES = [
   "Work From Home",
@@ -18,66 +24,72 @@ const TYPES = [
 ];
 
 const emptyForm = {
-  employeeName: "",
-  department: "",
   type: "",
   startDate: "",
   endDate: "",
   reason: "",
 };
 
-// Format date as YYYY-MM-DD using local calendar values.
-const getDateKey = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-};
-
-const parseDate = (value) => {
-  if (!value) return null;
-
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-};
-
-const formatDate = (value) => {
+const formatPickerDate = (value) => {
   if (!value) return "Choose date";
-
-  return parseDate(value).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return formatLocalDate(parseDateKey(value));
 };
 
-// Custom dropdown
-function CustomSelect({ label, value, options, placeholder, onChange }) {
+// ==========================================
+// CUSTOM DROPDOWN
+// ==========================================
+
+function CustomSelect({
+  label,
+  value,
+  options,
+  placeholder,
+  onChange,
+}) {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  const baseId = useId();
+  const buttonId = `${baseId}-button`;
+  const labelId = `${baseId}-label`;
+  const valueId = `${baseId}-value`;
+
+  const closeMenu = useCallback(() => setOpen(false), []);
+
+  useDismiss(containerRef, open, closeMenu);
 
   return (
-    <div className="relative">
-      <label className="mb-2 block text-sm font-semibold text-slate-700">
+    <div className="relative" ref={containerRef}>
+      <label
+        id={labelId}
+        htmlFor={buttonId}
+        className="mb-2 block text-sm font-semibold text-slate-700"
+      >
         {label}
       </label>
 
       <button
+        id={buttonId}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-labelledby={`${labelId} ${valueId}`}
         onClick={() => setOpen((previous) => !previous)}
-        className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm outline-none transition-all duration-200 ${
+        className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[#789BC5] ${
           open
             ? "border-[#789BC5] bg-white ring-2 ring-[#DCE8F6]"
             : "border-[#D9E5F0] bg-[#F0F5FA] hover:border-[#AFC5DF]"
         }`}
       >
-        <span className={value ? "text-slate-800" : "text-slate-400"}>
+        <span
+          id={valueId}
+          className={value ? "text-slate-800" : "text-slate-400"}
+        >
           {value || placeholder}
         </span>
 
         <span
+          aria-hidden="true"
           className={`text-[#52749B] transition-transform duration-200 ${
             open ? "rotate-180" : ""
           }`}
@@ -89,6 +101,7 @@ function CustomSelect({ label, value, options, placeholder, onChange }) {
       {open && (
         <div
           role="listbox"
+          aria-labelledby={labelId}
           className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-[#D9E5F0] bg-white p-1.5 shadow-xl shadow-slate-200/70"
         >
           {options.map((option) => (
@@ -108,8 +121,14 @@ function CustomSelect({ label, value, options, placeholder, onChange }) {
               }`}
             >
               {option}
+
               {value === option && (
-                <span className="float-right text-[#52749B]">✓</span>
+                <span
+                  aria-hidden="true"
+                  className="float-right text-[#52749B]"
+                >
+                  ✓
+                </span>
               )}
             </button>
           ))}
@@ -119,7 +138,10 @@ function CustomSelect({ label, value, options, placeholder, onChange }) {
   );
 }
 
-// Custom interactive date picker
+// ==========================================
+// CUSTOM DATE PICKER
+// ==========================================
+
 function CustomDatePicker({
   label,
   value,
@@ -127,14 +149,25 @@ function CustomDatePicker({
   minDate,
 }) {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  const baseId = useId();
+  const buttonId = `${baseId}-button`;
+  const labelId = `${baseId}-label`;
+  const valueId = `${baseId}-value`;
+
+  const closeCalendar = useCallback(() => setOpen(false), []);
+
+  useDismiss(containerRef, open, closeCalendar);
+
   const [visibleMonth, setVisibleMonth] = useState(() => {
-    return value
-      ? new Date(
-          parseDate(value).getFullYear(),
-          parseDate(value).getMonth(),
-          1
-        )
-      : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const base = value ? parseDateKey(value) : new Date();
+
+    return new Date(
+      base.getFullYear(),
+      base.getMonth(),
+      1
+    );
   });
 
   const [today] = useState(() => getDateKey(new Date()));
@@ -151,21 +184,24 @@ function CustomDatePicker({
     0
   ).getDate();
 
+  // Week starts on Monday
   const startingDay = (firstDay.getDay() + 6) % 7;
 
   const calendarDays = [
     ...Array(startingDay).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+    ...Array.from(
+      { length: daysInMonth },
+      (_, index) => index + 1
+    ),
   ];
 
   const changeMonth = (amount) => {
-    setVisibleMonth(
-      (previous) =>
-        new Date(
-          previous.getFullYear(),
-          previous.getMonth() + amount,
-          1
-        )
+    setVisibleMonth((previous) =>
+      new Date(
+        previous.getFullYear(),
+        previous.getMonth() + amount,
+        1
+      )
     );
   };
 
@@ -188,33 +224,48 @@ function CustomDatePicker({
     if (minDate && today < minDate) return;
 
     onChange(today);
+
     setVisibleMonth(
-      new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+      new Date(
+        new Date().getFullYear(),
+        new Date().getMonth(),
+        1
+      )
     );
+
     setOpen(false);
   };
 
   const todayDisabled = minDate && today < minDate;
 
   return (
-    <div className="relative">
-      <label className="mb-2 block text-sm font-semibold text-slate-700">
+    <div className="relative" ref={containerRef}>
+      <label
+        id={labelId}
+        htmlFor={buttonId}
+        className="mb-2 block text-sm font-semibold text-slate-700"
+      >
         {label}
       </label>
 
       <button
+        id={buttonId}
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-labelledby={`${labelId} ${valueId}`}
         onClick={() => setOpen((previous) => !previous)}
-        className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm outline-none transition-all duration-200 ${
+        className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[#789BC5] ${
           open
             ? "border-[#789BC5] bg-white ring-2 ring-[#DCE8F6]"
             : "border-[#D9E5F0] bg-[#F0F5FA] hover:border-[#AFC5DF]"
         }`}
       >
-        <span className={value ? "text-slate-800" : "text-slate-400"}>
-          {formatDate(value)}
+        <span
+          id={valueId}
+          className={value ? "text-slate-800" : "text-slate-400"}
+        >
+          {formatPickerDate(value)}
         </span>
 
         <svg
@@ -268,14 +319,16 @@ function CustomDatePicker({
 
           {/* Weekdays */}
           <div className="mb-2 grid grid-cols-7 gap-1 text-center">
-            {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((day) => (
-              <span
-                key={day}
-                className="py-2 text-xs font-bold text-[#789BC5]"
-              >
-                {day}
-              </span>
-            ))}
+            {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map(
+              (day) => (
+                <span
+                  key={day}
+                  className="py-2 text-xs font-bold text-[#789BC5]"
+                >
+                  {day}
+                </span>
+              )
+            )}
           </div>
 
           {/* Calendar Days */}
@@ -303,6 +356,18 @@ function CustomDatePicker({
                   type="button"
                   disabled={isDisabled}
                   aria-pressed={isSelected}
+                  aria-label={formatLocalDate(
+                    new Date(
+                      visibleMonth.getFullYear(),
+                      visibleMonth.getMonth(),
+                      day
+                    ),
+                    {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    }
+                  )}
                   onClick={() => selectDate(day)}
                   className={`flex aspect-square items-center justify-center rounded-lg text-sm font-medium transition-all duration-150 ${
                     isDisabled
@@ -348,11 +413,60 @@ function CustomDatePicker({
   );
 }
 
+// ==========================================
+// REQUEST FORM
+// ==========================================
+
 export default function RequestForm({ onCreated }) {
   const [form, setForm] = useState(emptyForm);
+
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // ==========================================
+  // LOAD LOGGED-IN EMPLOYEE
+  // ==========================================
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCurrentUser = async () => {
+      try {
+        setLoadingUser(true);
+
+        const { data } = await api.get("/auth/me");
+
+        if (!cancelled) {
+          setCurrentUser(data.user);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err.response?.data?.message ||
+              "Unable to load your account details. Please log in again."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingUser(false);
+        }
+      }
+    };
+
+    fetchCurrentUser();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ==========================================
+  // FORM HANDLERS
+  // ==========================================
 
   const handleChange = (e) => {
     setForm((previous) => ({
@@ -368,6 +482,8 @@ export default function RequestForm({ onCreated }) {
     setForm((previous) => ({
       ...previous,
       [name]: value,
+
+      // Clear end date if it is before the new start date
       ...(name === "startDate" &&
       previous.endDate &&
       previous.endDate < value
@@ -379,14 +495,22 @@ export default function RequestForm({ onCreated }) {
     setSuccess("");
   };
 
+  // ==========================================
+  // SUBMIT REQUEST
+  // ==========================================
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setError("");
     setSuccess("");
 
+    if (!currentUser) {
+      setError("Your account details could not be loaded. Please log in again.");
+      return;
+    }
+
     if (
-      !form.employeeName.trim() ||
-      !form.department ||
       !form.type ||
       !form.startDate ||
       !form.endDate ||
@@ -404,15 +528,24 @@ export default function RequestForm({ onCreated }) {
     setSubmitting(true);
 
     try {
+      // Name and department are intentionally NOT sent.
+      // The backend gets them from the authenticated user.
       const { data } = await api.post("/requests", {
-        ...form,
-        employeeName: form.employeeName.trim(),
+        type: form.type,
+        startDate: form.startDate,
+        endDate: form.endDate,
         reason: form.reason.trim(),
       });
 
-      onCreated(data);
+      if (onCreated) {
+        onCreated(data);
+      }
+
       setForm(emptyForm);
-      setSuccess("Your leave request has been submitted successfully!");
+
+      setSuccess(
+        "Your leave request has been submitted successfully!"
+      );
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -423,21 +556,33 @@ export default function RequestForm({ onCreated }) {
     }
   };
 
+  // ==========================================
+  // STYLES
+  // ==========================================
+
   const inputClass =
     "w-full rounded-xl border border-[#D9E5F0] bg-[#F0F5FA] px-4 py-3 text-sm text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-[#AFC5DF] focus:border-[#789BC5] focus:bg-white focus:ring-2 focus:ring-[#DCE8F6]";
 
   const labelClass =
     "mb-2 block text-sm font-semibold text-slate-700";
 
+  // ==========================================
+  // UI
+  // ==========================================
+
   return (
     <form
       onSubmit={handleSubmit}
+      noValidate
       className="mb-8 rounded-2xl border border-[#DCE6EF] bg-white p-5 shadow-sm transition-shadow duration-300 hover:shadow-md sm:p-7 lg:p-8"
     >
       {/* Form Header */}
       <div className="mb-7 border-b border-slate-100 pb-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E8F0FA] text-xl text-[#52749B]">
+          <div
+            aria-hidden="true"
+            className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E8F0FA] text-xl text-[#52749B]"
+          >
             +
           </div>
 
@@ -459,7 +604,10 @@ export default function RequestForm({ onCreated }) {
           role="alert"
           className="mb-5 flex items-center gap-3 rounded-xl border border-red-200 bg-[#FCE5E5] px-4 py-3 text-sm font-medium text-[#B54343]"
         >
-          <span className="text-lg">!</span>
+          <span aria-hidden="true" className="text-lg">
+            !
+          </span>
+
           {error}
         </div>
       )}
@@ -470,40 +618,69 @@ export default function RequestForm({ onCreated }) {
           role="status"
           className="mb-5 flex items-center gap-3 rounded-xl border border-[#C9E2D1] bg-[#E3F1E8] px-4 py-3 text-sm font-medium text-[#527D61]"
         >
-          <span className="text-lg">✓</span>
+          <span aria-hidden="true" className="text-lg">
+            ✓
+          </span>
+
           {success}
         </div>
       )}
 
       <div className="space-y-5">
-        {/* Employee Name */}
-        <div>
-          <label htmlFor="employeeName" className={labelClass}>
-            Employee Name
-          </label>
 
-          <input
-            id="employeeName"
-            name="employeeName"
-            type="text"
-            placeholder="Enter employee name"
-            value={form.employeeName}
-            onChange={handleChange}
-            required
-            className={inputClass}
-          />
+        {/* Employee Name and Department */}
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+
+          <div>
+            <label
+              htmlFor="employeeName"
+              className={labelClass}
+            >
+              Employee Name
+            </label>
+
+            <input
+              id="employeeName"
+              type="text"
+              value={
+                loadingUser
+                  ? "Loading account..."
+                  : currentUser?.name || ""
+              }
+              readOnly
+              disabled={loadingUser || !currentUser}
+              placeholder="Employee name"
+              className={`${inputClass} cursor-not-allowed bg-[#E8F0FA]`}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="department"
+              className={labelClass}
+            >
+              Department
+            </label>
+
+            <input
+              id="department"
+              type="text"
+              value={
+                loadingUser
+                  ? "Loading account..."
+                  : currentUser?.department || ""
+              }
+              readOnly
+              disabled={loadingUser || !currentUser}
+              placeholder="Department"
+              className={`${inputClass} cursor-not-allowed bg-[#E8F0FA]`}
+            />
+          </div>
+
         </div>
 
-        {/* Department and Request Type */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <CustomSelect
-            label="Department"
-            value={form.department}
-            options={DEPARTMENTS}
-            placeholder="Select department"
-            onChange={(value) => updateField("department", value)}
-          />
-
+        {/* Request Type */}
+        <div>
           <CustomSelect
             label="Request Type"
             value={form.type}
@@ -531,7 +708,10 @@ export default function RequestForm({ onCreated }) {
 
         {/* Reason */}
         <div>
-          <label htmlFor="reason" className={labelClass}>
+          <label
+            htmlFor="reason"
+            className={labelClass}
+          >
             Reason
           </label>
 
@@ -542,17 +722,19 @@ export default function RequestForm({ onCreated }) {
             onChange={handleChange}
             placeholder="Write the reason for your request..."
             required
+            aria-required="true"
             rows={4}
             className={`${inputClass} resize-y`}
           />
         </div>
+
       </div>
 
-      {/* Centered Powder Blue Submit Button */}
+      {/* Submit Button */}
       <div className="mt-7 flex justify-center border-t border-slate-100 pt-6">
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || loadingUser || !currentUser}
           className="inline-flex min-w-52 items-center justify-center gap-2 rounded-xl border border-[#C9D9EE] bg-[#E8F0FA] px-8 py-3.5 text-sm font-bold text-[#52749B] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#AFC5DF] hover:bg-[#DCE8F6] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {submitting ? (
@@ -560,9 +742,13 @@ export default function RequestForm({ onCreated }) {
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#789BC5]/40 border-t-[#52749B]" />
               Submitting...
             </>
+          ) : loadingUser ? (
+            "Loading Account..."
           ) : (
             <>
-              <span className="text-lg">+</span>
+              <span aria-hidden="true" className="text-lg">
+                +
+              </span>
               Submit Request
             </>
           )}
