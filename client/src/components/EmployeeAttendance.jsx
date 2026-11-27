@@ -10,8 +10,7 @@ const getPakistanDate = () =>
     day: "2-digit",
   }).format(new Date());
 
-// Convert a leave date to a Pakistan calendar date (YYYY-MM-DD).
-// Date-only values are kept as-is to avoid timezone shifting.
+// Convert a leave date to Pakistan calendar date.
 const toDateKey = (value) => {
   if (!value) return "";
 
@@ -69,20 +68,29 @@ const formatDuration = (minutes) => {
   return `${hours}h ${remainingMinutes}m`;
 };
 
+// Calculate live duration only for today's open session.
+// Historical incomplete sessions are not counted as ongoing.
+
 const calculateWorkedMinutes = (record) => {
   if (!record) return 0;
 
   const sessions = record.sessions || [];
+  const isToday = record.dateKey === getPakistanDate();
 
   return sessions.reduce((total, session) => {
     if (!session.checkIn) return total;
 
     const start = new Date(session.checkIn).getTime();
+
     const end = session.checkOut
       ? new Date(session.checkOut).getTime()
-      : Date.now();
+      : isToday
+        ? Date.now()
+        : start;
 
-    if (!Number.isFinite(start) || !Number.isFinite(end)) return total;
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+      return total;
+    }
 
     return total + Math.max(0, Math.floor((end - start) / 60000));
   }, 0);
@@ -130,9 +138,7 @@ export default function EmployeeAttendance() {
     fetchAttendance();
   }, [fetchAttendance]);
 
-  // Load the employee's own leave requests to show an approved leave chip.
-  // This does not disable attendance: employees may still check in if they
-  // come to work during an approved leave period.
+  // Load employee's leave requests.
   useEffect(() => {
     let isMounted = true;
 
@@ -144,7 +150,11 @@ export default function EmployeeAttendance() {
           setLeaveRequests(Array.isArray(data) ? data : []);
         }
       } catch (err) {
-        console.error("Unable to load leave requests for attendance:", err);
+        console.error(
+          "Unable to load leave requests for attendance:",
+          err
+        );
+
         if (isMounted) setLeaveRequests([]);
       }
     };
@@ -156,6 +166,7 @@ export default function EmployeeAttendance() {
     };
   }, []);
 
+  // Update live timer every 30 seconds.
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(Date.now());
@@ -169,9 +180,12 @@ export default function EmployeeAttendance() {
 
   const sessions = todayRecord?.sessions || [];
 
-  const activeSession = sessions.find((session) => !session.checkOut);
+  const activeSession = sessions.find(
+    (session) => !session.checkOut
+  );
 
   const workedMinutes = calculateWorkedMinutes(todayRecord);
+
   const requiredMinutes = todayRecord?.requiredMinutes ?? 480;
 
   const shortageMinutes = Math.max(
@@ -186,21 +200,30 @@ export default function EmployeeAttendance() {
 
   const isCheckedIn = Boolean(activeSession);
 
-  // Only approved requests covering today's Pakistan date count as leave.
+  // Only approved leave requests covering today's date are shown.
   const approvedLeaveToday = leaveRequests.find((request) => {
     if (request.status !== "Approved") return false;
 
     const startDate = toDateKey(request.startDate);
     const endDate = toDateKey(request.endDate);
 
-    return Boolean(startDate && endDate && startDate <= today && today <= endDate);
+    return Boolean(
+      startDate &&
+        endDate &&
+        startDate <= today &&
+        today <= endDate
+    );
   });
 
   const leaveChipLabel = approvedLeaveToday
-    ? ["Annual Leave", "Sick Leave"].includes(approvedLeaveToday.type)
+    ? ["Annual Leave", "Sick Leave"].includes(
+        approvedLeaveToday.type
+      )
       ? "On Leave"
       : approvedLeaveToday.type
     : "";
+
+  // EMPLOYEE CHECK IN
 
   const handleCheckIn = async () => {
     setActionLoading(true);
@@ -211,6 +234,7 @@ export default function EmployeeAttendance() {
       const { data } = await api.post("/attendance/check-in");
 
       setSuccess(data.message || "Check-in successful.");
+
       await fetchAttendance();
     } catch (err) {
       setError(
@@ -221,6 +245,8 @@ export default function EmployeeAttendance() {
     }
   };
 
+  // EMPLOYEE CHECK OUT
+
   const handleCheckOut = async () => {
     setActionLoading(true);
     setError("");
@@ -230,6 +256,7 @@ export default function EmployeeAttendance() {
       const { data } = await api.post("/attendance/check-out");
 
       setSuccess(data.message || "Check-out successful.");
+
       await fetchAttendance();
     } catch (err) {
       setError(
@@ -240,12 +267,12 @@ export default function EmployeeAttendance() {
     }
   };
 
+  // Attendance history excludes today's record.
   const historyRecords = [...records]
     .filter((record) => record.dateKey !== today)
     .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
     .slice(0, 10);
 
-  // Keep the live timer updated while an employee is checked in.
   const liveWorkedMinutes = isCheckedIn
     ? calculateWorkedMinutes(todayRecord)
     : workedMinutes;
@@ -270,7 +297,8 @@ export default function EmployeeAttendance() {
 
   return (
     <div className="space-y-7">
-      {/* Page Header */}
+      {/* PAGE HEADER */}
+
       <div>
         <p className="text-sm font-semibold text-[#52749B]">
           Employee Portal / Attendance
@@ -285,7 +313,8 @@ export default function EmployeeAttendance() {
         </p>
       </div>
 
-      {/* Messages */}
+      {/* ERROR AND SUCCESS MESSAGES */}
+
       {error && (
         <div
           role="alert"
@@ -304,7 +333,8 @@ export default function EmployeeAttendance() {
         </div>
       )}
 
-      {/* Today's Attendance */}
+      {/* TODAY'S ATTENDANCE */}
+
       <section className="rounded-2xl border border-[#D5E5F5] bg-gradient-to-r from-[#EAF2FC] to-[#DCEBFA] p-6 shadow-sm sm:p-8">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
           <div>
@@ -353,6 +383,8 @@ export default function EmployeeAttendance() {
           </div>
         </div>
 
+        {/* CURRENT STATUS */}
+
         <div className="mt-6 rounded-xl border border-white/70 bg-white/70 p-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-medium text-slate-600">
@@ -379,7 +411,8 @@ export default function EmployeeAttendance() {
         </div>
       </section>
 
-      {/* Summary Cards */}
+      {/* SUMMARY CARDS */}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           title="Total Worked"
@@ -410,7 +443,8 @@ export default function EmployeeAttendance() {
         />
       </div>
 
-      {/* Today's Sessions */}
+      {/* TODAY'S SESSIONS */}
+
       <section className="rounded-2xl border border-[#DCE6EF] bg-white p-5 shadow-sm sm:p-6">
         <div className="mb-5">
           <h2 className="font-bold text-slate-800">
@@ -437,7 +471,10 @@ export default function EmployeeAttendance() {
 
               const duration =
                 Number.isFinite(start) && Number.isFinite(end)
-                  ? Math.max(0, Math.floor((end - start) / 60000))
+                  ? Math.max(
+                      0,
+                      Math.floor((end - start) / 60000)
+                    )
                   : 0;
 
               return (
@@ -484,7 +521,8 @@ export default function EmployeeAttendance() {
         )}
       </section>
 
-      {/* Attendance History */}
+      {/* ATTENDANCE HISTORY */}
+
       <section className="rounded-2xl border border-[#DCE6EF] bg-white p-5 shadow-sm sm:p-6">
         <div className="mb-5">
           <h2 className="font-bold text-slate-800">
@@ -506,8 +544,12 @@ export default function EmployeeAttendance() {
               <thead>
                 <tr className="border-b border-slate-100 text-slate-500">
                   <th className="px-4 py-3 font-semibold">Date</th>
-                  <th className="px-4 py-3 font-semibold">First Check-in</th>
-                  <th className="px-4 py-3 font-semibold">Last Check-out</th>
+                  <th className="px-4 py-3 font-semibold">
+                    First Check-in
+                  </th>
+                  <th className="px-4 py-3 font-semibold">
+                    Last Check-out
+                  </th>
                   <th className="px-4 py-3 font-semibold">Worked</th>
                   <th className="px-4 py-3 font-semibold">Shortage</th>
                 </tr>
@@ -536,7 +578,11 @@ export default function EmployeeAttendance() {
                       </td>
 
                       <td className="px-4 py-4 text-slate-600">
-                        {formatTime(lastSession?.checkOut)}
+                        {lastSession?.checkOut
+                          ? formatTime(lastSession.checkOut)
+                          : lastSession
+                            ? "Missed checkout"
+                            : "—"}
                       </td>
 
                       <td className="px-4 py-4 font-medium text-slate-700">

@@ -1,15 +1,14 @@
+
 import Attendance from "../models/Attendance.js";
 import User from "../models/User.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 
-const REQUIRED_MINUTES = 480; // 9 AM - 5 PM = 8 hours
+const REQUIRED_MINUTES = 480;
 const HALF_DAY_MINUTES = 240;
 const TIME_ZONE = "Asia/Karachi";
-const OFFICE_CLOSE_MINUTES = 17 * 60; // 5:00 PM
+const OFFICE_CLOSE_MINUTES = 17 * 60;
 
-// ------------------------------------------
 // DATE HELPERS
-// ------------------------------------------
 
 const getPakistanDate = () =>
   new Intl.DateTimeFormat("en-CA", {
@@ -27,16 +26,21 @@ const getPakistanTimeMinutes = () => {
     hourCycle: "h23",
   }).formatToParts(new Date());
 
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value])
+  );
+
   return Number(values.hour) * 60 + Number(values.minute);
 };
 
-const isOfficeDayClosed = () => getPakistanTimeMinutes() >= OFFICE_CLOSE_MINUTES;
+const isOfficeDayClosed = () =>
+  getPakistanTimeMinutes() >= OFFICE_CLOSE_MINUTES;
 
 const isValidDateKey = (value) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return false;
 
   const date = new Date(`${value}T00:00:00.000Z`);
+
   return (
     !Number.isNaN(date.getTime()) &&
     date.toISOString().slice(0, 10) === value
@@ -51,12 +55,11 @@ const isWeekendDate = (dateKey) => {
 const getDateRange = (dateKey) => {
   const start = new Date(`${dateKey}T00:00:00.000Z`);
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+
   return { start, end };
 };
 
-// ------------------------------------------
 // APPROVED LEAVE HELPERS
-// ------------------------------------------
 
 const getApprovedLeaveForDate = async (employeeId, dateKey) => {
   const { start, end } = getDateRange(dateKey);
@@ -110,9 +113,7 @@ const getDailyRequirement = (leaveRequest) => {
   }
 };
 
-// ------------------------------------------
 // WORKING HOURS HELPERS
-// ------------------------------------------
 
 const calculateWorkedMinutes = (sessions = []) =>
   sessions.reduce((total, session) => {
@@ -122,12 +123,24 @@ const calculateWorkedMinutes = (sessions = []) =>
       new Date(session.checkOut).getTime() -
       new Date(session.checkIn).getTime();
 
-    return duration > 0 ? total + Math.floor(duration / 60000) : total;
+    return duration > 0
+      ? total + Math.floor(duration / 60000)
+      : total;
   }, 0);
 
-const calculateLiveWorkedMinutes = (sessions = []) => {
+// Only today's open session is calculated live.
+// Previous dates' incomplete sessions are not counted until corrected.
+
+const calculateLiveWorkedMinutes = (sessions = [], dateKey) => {
   const completedMinutes = calculateWorkedMinutes(sessions);
-  const activeSession = sessions.find((session) => !session.checkOut);
+
+  if (dateKey !== getPakistanDate()) {
+    return completedMinutes;
+  }
+
+  const activeSession = sessions.find(
+    (session) => !session.checkOut
+  );
 
   if (!activeSession?.checkIn) return completedMinutes;
 
@@ -148,9 +161,7 @@ const updateAttendanceTotals = (attendance) => {
   attendance.extraMinutes = Math.max(0, workedMinutes - requiredMinutes);
 };
 
-// ------------------------------------------
 // EMPLOYEE: CHECK IN
-// ------------------------------------------
 
 export const checkIn = async (req, res) => {
   try {
@@ -163,19 +174,26 @@ export const checkIn = async (req, res) => {
       });
     }
 
-    // Approved leave does NOT block check-in. If an employee comes to work
-    // during leave, their attendance session is still recorded.
-    const approvedLeave = await getApprovedLeaveForDate(employeeId, today);
+    const approvedLeave = await getApprovedLeaveForDate(
+      employeeId,
+      today
+    );
+
     const requirement = getDailyRequirement(approvedLeave);
+
+    // IMPORTANT:
+    // Check only today's open session.
+    // Yesterday's incomplete session will not block today's check-in.
 
     const existingOpenAttendance = await Attendance.findOne({
       employee: employeeId,
+      dateKey: today,
       "sessions.checkOut": null,
     });
 
     if (existingOpenAttendance) {
       return res.status(400).json({
-        message: "Please check out from your previous session first.",
+        message: "You are already checked in today.",
       });
     }
 
@@ -194,6 +212,7 @@ export const checkIn = async (req, res) => {
     }
 
     attendance.requiredMinutes = requirement.requiredMinutes;
+
     attendance.sessions.push({
       checkIn: new Date(),
       checkOut: null,
@@ -215,30 +234,37 @@ export const checkIn = async (req, res) => {
       });
     }
 
-    return res.status(500).json({ message: "Unable to check in." });
+    return res.status(500).json({
+      message: "Unable to check in.",
+    });
   }
 };
 
-// ------------------------------------------
 // EMPLOYEE: CHECK OUT
-// ------------------------------------------
 
 export const checkOut = async (req, res) => {
   try {
     const employeeId = req.user._id;
+    const today = getPakistanDate();
+
+    // Checkout only today's open session.
+    // It will not close an old incomplete session.
 
     const attendance = await Attendance.findOne({
       employee: employeeId,
+      dateKey: today,
       "sessions.checkOut": null,
-    }).sort({ dateKey: -1 });
+    });
 
     if (!attendance) {
       return res.status(400).json({
-        message: "You are not currently checked in.",
+        message: "You are not currently checked in today.",
       });
     }
 
-    const openSession = attendance.sessions.find((session) => !session.checkOut);
+    const openSession = attendance.sessions.find(
+      (session) => !session.checkOut
+    );
 
     if (!openSession) {
       return res.status(400).json({
@@ -249,20 +275,22 @@ export const checkOut = async (req, res) => {
     const now = new Date();
 
     if (now <= new Date(openSession.checkIn)) {
-      return res.status(400).json({ message: "Invalid check-out time." });
+      return res.status(400).json({
+        message: "Invalid check-out time.",
+      });
     }
 
     openSession.checkOut = now;
 
-    // Refresh the requirement in case the leave request was approved
-    // while the employee's attendance session was active.
     const approvedLeave = await getApprovedLeaveForDate(
       employeeId,
       attendance.dateKey
     );
+
     const requirement = getDailyRequirement(approvedLeave);
 
     attendance.requiredMinutes = requirement.requiredMinutes;
+
     updateAttendanceTotals(attendance);
 
     await attendance.save();
@@ -274,18 +302,22 @@ export const checkOut = async (req, res) => {
     });
   } catch (error) {
     console.error("Check-out error:", error);
-    return res.status(500).json({ message: "Unable to check out." });
+
+    return res.status(500).json({
+      message: "Unable to check out.",
+    });
   }
 };
 
-// ------------------------------------------
 // EMPLOYEE: VIEW OWN ATTENDANCE
-// ------------------------------------------
 
 export const getMyAttendance = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const filter = { employee: req.user._id };
+
+    const filter = {
+      employee: req.user._id,
+    };
 
     if (startDate || endDate) {
       if (
@@ -304,11 +336,14 @@ export const getMyAttendance = async (req, res) => {
       }
 
       filter.dateKey = {};
+
       if (startDate) filter.dateKey.$gte = startDate;
       if (endDate) filter.dateKey.$lte = endDate;
     }
 
-    const records = await Attendance.find(filter).sort({ dateKey: -1 });
+    const records = await Attendance.find(filter).sort({
+      dateKey: -1,
+    });
 
     const enrichedRecords = await Promise.all(
       records.map(async (record) => {
@@ -316,6 +351,7 @@ export const getMyAttendance = async (req, res) => {
           req.user._id,
           record.dateKey
         );
+
         const requirement = getDailyRequirement(approvedLeave);
 
         return {
@@ -329,15 +365,14 @@ export const getMyAttendance = async (req, res) => {
     return res.status(200).json(enrichedRecords);
   } catch (error) {
     console.error("My attendance error:", error);
+
     return res.status(500).json({
       message: "Unable to load attendance history.",
     });
   }
 };
 
-// ------------------------------------------
 // ADMIN: VIEW ALL EMPLOYEES' ATTENDANCE
-// ------------------------------------------
 
 export const getAdminAttendance = async (req, res) => {
   try {
@@ -353,17 +388,23 @@ export const getAdminAttendance = async (req, res) => {
     const today = getPakistanDate();
     const isToday = date === today;
     const dayHasEnded = isToday && isOfficeDayClosed();
+
     const { start, end } = getDateRange(date);
 
     const [employees, records, approvedLeaves] = await Promise.all([
-      User.find({ role: "employee", isActive: true })
+      User.find({
+        role: "employee",
+        isActive: true,
+      })
         .populate({
           path: "subDepartment",
           populate: { path: "parent" },
         })
         .sort({ name: 1 }),
 
-      Attendance.find({ dateKey: date }),
+      Attendance.find({
+        dateKey: date,
+      }),
 
       LeaveRequest.find({
         status: "Approved",
@@ -373,11 +414,17 @@ export const getAdminAttendance = async (req, res) => {
     ]);
 
     const recordsByEmployee = new Map(
-      records.map((record) => [String(record.employee), record])
+      records.map((record) => [
+        String(record.employee),
+        record,
+      ])
     );
 
     const leavesByEmployee = new Map(
-      approvedLeaves.map((leave) => [String(leave.employee), leave])
+      approvedLeaves.map((leave) => [
+        String(leave.employee),
+        leave,
+      ])
     );
 
     const attendance = employees.map((employee) => {
@@ -385,11 +432,23 @@ export const getAdminAttendance = async (req, res) => {
       const leave = leavesByEmployee.get(String(employee._id));
       const sessions = record?.sessions || [];
 
-      const workedMinutes = calculateLiveWorkedMinutes(sessions);
-      const openSession = sessions.find((session) => !session.checkOut);
+      const workedMinutes = calculateLiveWorkedMinutes(
+        sessions,
+        date
+      );
+
+      const openSession = sessions.find(
+        (session) => !session.checkOut
+      );
+
+      const isCurrentlyCheckedIn = Boolean(
+        isToday && openSession
+      );
 
       const requirement = getDailyRequirement(leave);
-      const requiredMinutes = isWeekend ? 0 : requirement.requiredMinutes;
+      const requiredMinutes = isWeekend
+        ? 0
+        : requirement.requiredMinutes;
 
       const shortageMinutes = isWeekend
         ? 0
@@ -403,11 +462,12 @@ export const getAdminAttendance = async (req, res) => {
 
       if (isWeekend) {
         status = "Day Off";
-      } else if (openSession) {
-        // Actual attendance takes precedence over leave status.
+      } else if (isCurrentlyCheckedIn) {
         status = "Checked In";
-      } else if (record && workedMinutes > 0) {
-        status = shortageMinutes > 0 ? "Incomplete" : "Completed";
+      } else if (record && (workedMinutes > 0 || openSession)) {
+        status = shortageMinutes > 0
+          ? "Incomplete"
+          : "Completed";
       } else if (requirement.isFullDayLeave) {
         status = "On Leave";
       } else if (requirement.leaveStatus === "Half Day") {
@@ -417,8 +477,6 @@ export const getAdminAttendance = async (req, res) => {
       } else if (isToday && !dayHasEnded) {
         status = "Not Checked In";
       } else {
-        // At/after 5 PM Pakistan time, employees with no check-in and
-        // no approved leave are automatically shown as Absent.
         status = "Absent";
       }
 
@@ -437,7 +495,9 @@ export const getAdminAttendance = async (req, res) => {
 
         date,
         sessions,
+
         checkIn: sessions[0]?.checkIn || null,
+
         checkOut:
           sessions.length && !openSession
             ? sessions[sessions.length - 1].checkOut
@@ -447,7 +507,11 @@ export const getAdminAttendance = async (req, res) => {
         requiredMinutes,
         shortageMinutes,
         extraMinutes,
-        isCurrentlyCheckedIn: Boolean(openSession),
+
+        isCurrentlyCheckedIn,
+
+        hasMissedCheckout: Boolean(!isToday && openSession),
+
         status,
 
         leave: leave
@@ -468,9 +532,18 @@ export const getAdminAttendance = async (req, res) => {
         ["Checked In", "Incomplete", "Completed"].includes(item.status)
       ).length,
 
-      absent: attendance.filter((item) => item.status === "Absent").length,
-      onLeave: attendance.filter((item) => item.status === "On Leave").length,
-      halfDay: attendance.filter((item) => item.status === "Half Day").length,
+      absent: attendance.filter(
+        (item) => item.status === "Absent"
+      ).length,
+
+      onLeave: attendance.filter(
+        (item) => item.status === "On Leave"
+      ).length,
+
+      halfDay: attendance.filter(
+        (item) => item.status === "Half Day"
+      ).length,
+
       workFromHome: attendance.filter(
         (item) => item.status === "Work From Home"
       ).length,
@@ -479,7 +552,9 @@ export const getAdminAttendance = async (req, res) => {
         (item) => item.isCurrentlyCheckedIn
       ).length,
 
-      incomplete: attendance.filter((item) => item.shortageMinutes > 0).length,
+      incomplete: attendance.filter(
+        (item) => item.shortageMinutes > 0
+      ).length,
 
       totalWorkedMinutes: attendance.reduce(
         (sum, item) => sum + item.workedMinutes,
@@ -507,6 +582,7 @@ export const getAdminAttendance = async (req, res) => {
     });
   } catch (error) {
     console.error("Admin attendance error:", error);
+
     return res.status(500).json({
       message: "Unable to load attendance records.",
     });
